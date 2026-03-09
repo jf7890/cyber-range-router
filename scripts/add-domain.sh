@@ -46,11 +46,39 @@ cat > "$CONF_FILE" <<EOF
 address=/${DOMAIN}/${WAN_IP}
 EOF
 
-# Hot reload without full restart
+# Debounced restart to avoid thrash on multi-user updates
+schedule_dnsmasq_restart() {
+  delay="${DNSMASQ_RESTART_DELAY:-4}"
+  lock_dir="/run/dnsmasq-restart.lock"
+  pid_file="/run/dnsmasq-restart.pid"
+
+  # If a restart is already scheduled, do nothing
+  if [ -d "$lock_dir" ]; then
+    if [ -f "$pid_file" ] && kill -0 "$(cat "$pid_file" 2>/dev/null)" 2>/dev/null; then
+      return 0
+    fi
+    # Stale lock, clean it
+    rm -f "$pid_file" >/dev/null 2>&1 || true
+    rmdir "$lock_dir" >/dev/null 2>&1 || true
+  fi
+
+  if mkdir "$lock_dir" 2>/dev/null; then
+    (
+      sleep "$delay"
+      rc-service dnsmasq restart >/dev/null 2>&1 || true
+      rm -f "$pid_file" >/dev/null 2>&1 || true
+      rmdir "$lock_dir" >/dev/null 2>&1 || true
+    ) &
+    echo $! > "$pid_file" 2>/dev/null || true
+  fi
+}
+
+STATUS_MSG="dnsmasq restart scheduled"
 if pidof dnsmasq >/dev/null 2>&1; then
-  kill -HUP "$(pidof dnsmasq)" >/dev/null 2>&1 || true
+  schedule_dnsmasq_restart
 else
   rc-service dnsmasq start >/dev/null 2>&1 || true
+  STATUS_MSG="dnsmasq started"
 fi
 
-echo "[OK] ${DOMAIN} -> ${WAN_IP} (dnsmasq reloaded)"
+echo "[OK] ${DOMAIN} -> ${WAN_IP} (${STATUS_MSG})"
