@@ -11,5 +11,5 @@ internet_bridge       = "vmbr10"      # WAN bridge
 lan_bridge            = "nonet"    # LAN bridge (SDN Vnet)
 
 # Storage
-iso_storage           = "local"
-vm_storage_pool       = "local-lvm"
+iso_storage           = "hdd-data"
+vm_storage_pool       = "hdd-lvm"
