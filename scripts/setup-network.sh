@@ -81,6 +81,13 @@ iptables_add_once() {
   fi
 }
 
+iptables_insert_first_once() {
+  ch="$1"; shift
+  if ! iptables -C "$ch" "$@" 2>/dev/null; then
+    iptables -I "$ch" 1 "$@"
+  fi
+}
+
 ensure_chain() {
   tbl="$1"; ch="$2"
   if [ "$tbl" = "filter" ]; then
@@ -366,6 +373,8 @@ fi
 say "[+] iptables: FORWARD default DROP + chains..."
 iptables -F FORWARD
 iptables -P FORWARD DROP
+
+iptables_insert_first_once FORWARD -i "$DMZ_IF" -o "$MGMT_IF" -j ACCEPT
 
 ensure_chain filter "$SERVICES_CHAIN"
 flush_chain filter "$SERVICES_CHAIN"
